@@ -56,3 +56,79 @@ t.setMatrixAt(n,u),n++}e.count=t.count=n};P(f,y,o),P(p,m,n),h.add(f,y,p,m)}{cons
 },s=new e.CylinderGeometry(.08,.1,6,5);s.translate(0,3,0);const i=new e.PlaneGeometry(2.4,1.6);i.translate(1.2,0,0);let a=0;for(let t=10;t<l-10;t+=22)if(!m[t]&&!m[t-1]){for(const r of[-1,1]){
 const c=M[t].clone().addScaledVector(f[t],r*(G+.7)),d=new e.Mesh(s,o);d.position.copy(c),h.add(d);const w=new e.Mesh(i,(a+(r>0?1:0))%2?n.md:n.ru);w.position.copy(c).add(new e.Vector3(0,5.1,0));const l=p[t].clone().negate();l.y=0,
 l.normalize(),w.rotation.y=Math.atan2(-l.z,l.x),h.add(w)}a++}}return h}
+
+export function buildThemedDecor(key,i,a,c,d=7){
+if(key==='funk') return buildFunkDecor(i,a,c,d);
+const w=(function(e){let t=e>>>0;return()=>(t=1664525*t+1013904223>>>0,t/4294967296)})(d);
+const h=new e.Group;
+const {N:l,P:M,R:f,U:y,T:p,gapSample:m,width:u}=i;
+const G=u/2;
+const x=(ex,tz,o,n,s)=>{for(let r=0;r<l;r+=3){const ii=M[r],aa=ii.x-ex,cc=ii.z-tz;if(Math.sqrt(aa*aa+cc*cc)<o+G+6&&ii.y-2<s+n)return!1}return!0};
+const I=(e,t)=>{const o=Math.floor(w()*(l-20))+10,n=w()<.5?-1:1,s=e+w()*(t-e);return{x:M[o].x+f[o].x*s*n+10*(w()-.5),z:M[o].z+f[o].z*s*n+10*(w()-.5),i:o}};
+const g=(factory,count,emin,emax,maxtries=60)=>{let r=0;for(let ii=0;ii<count*maxtries&&r<count;ii++){const pt=I(emin,emax),obj=factory(w);const ground=a(pt.x,pt.z);if(x(pt.x,pt.z,obj.radius,obj.height,ground)){obj.obj.position.set(pt.x,ground-.3,pt.z);obj.obj.lookAt(M[pt.i].x,ground,M[pt.i].z);h.add(obj.obj);r++}}};
+const tmat=(col,o={})=>new e.MeshLambertMaterial({color:col,flatShading:!0,...o});
+const rng=w;
+
+if(key==='samosa'){
+  // samosas
+  g(()=>{const grp=new e.Group;const pastry=tmat(13408563);const mesh=new e.Mesh(new e.TetrahedronGeometry(1.4,0),pastry);mesh.position.y=1.2;grp.add(mesh);const filling=tmat(11231286);const f=new e.Mesh(new e.SphereGeometry(.6,6,4),filling);f.position.y=1.2;grp.add(f);return{obj:grp,radius:2.5,height:3}},18,20,120);
+  // auto-rickshaws
+  g(()=>{const grp=new e.Group;const body=tmat(16753920);const b=new e.Mesh(new e.BoxGeometry(2.6,1.6,1.8),body);b.position.y=1.3;grp.add(b);const cabin=tmat(16777215,{transparent:!0,opacity:.7});const c=new e.Mesh(new e.BoxGeometry(1.6,1.2,1.6),cabin);c.position.set(-.2,2.4,.0);grp.add(c);const wheel=tmat(2236962);for(const wx of[-1,1])for(const wz of[-.7,.7]){const wh=new e.Mesh(new e.CylinderGeometry(.45,.45,.25,8),wheel);wh.rotation.z=Math.PI/2;wh.position.set(wx*.9,.4,wz);grp.add(wh)}const canopy=tmat(3121242);const cn=new e.Mesh(new e.ConeGeometry(1.6,1,.4),canopy);cn.position.set(-.2,3.3,0);grp.add(cn);return{obj:grp,radius:3,height:4}},12,30,140);
+  // traditional arches
+  g(()=>{const grp=new e.Group;const stone=tmat(12632256);const left=new e.Mesh(new e.BoxGeometry(.6,4,1),stone);left.position.set(-2.2,2,0);grp.add(left);const right=left.clone();right.position.x=2.2;grp.add(right);const top=new e.Mesh(new e.BoxGeometry(5,1,1.2),stone);top.position.y=4.2;grp.add(top);const dome=new e.Mesh(new e.SphereGeometry(1.6,8,6,0,Math.PI*2,0,Math.PI/2),tmat(16737843));dome.position.y=5.2;grp.add(dome);return{obj:grp,radius:4,height:7}},8,40,130);
+  // spice baskets
+  g(()=>{const grp=new e.Group;const basket=tmat(9074017);const b=new e.Mesh(new e.CylinderGeometry(1.2,1,1,8),basket);b.position.y=.5;grp.add(b);const spice=tmat(16737843);const s=new e.Mesh(new e.SphereGeometry(.9,8,6),spice);s.position.y=1.2;s.scale.y=.6;grp.add(s);return{obj:grp,radius:2,height:2}},10,25,110);
+}
+
+if(key==='africanium'){
+  // baobab trees
+  g(()=>{const grp=new e.Group;const trunk=tmat(8947848);const tr=new e.Mesh(new e.CylinderGeometry(1.6,2.4,9,8),trunk);tr.position.y=4.5;grp.add(tr);const foliage=tmat(5592405);const f=new e.Mesh(new e.SphereGeometry(4.5,10,8),foliage);f.position.y=10;f.scale.set(1.3,1,1.3);grp.add(f);const f2=new e.Mesh(new e.SphereGeometry(3.2,8,6),foliage);f2.position.set(2.5,12,-1);grp.add(f2);return{obj:grp,radius:6,height:14}},14,35,160);
+  // grass tufts
+  g(()=>{const grp=new e.Group;const gmat=tmat(5592405);for(let i=0;i<5;i++){const blade=new e.Mesh(new e.ConeGeometry(.15,.8,4),gmat);blade.position.set((w()-.5)*2,0,(w()-.5)*2);blade.rotation.z=(w()-.5)*.6;grp.add(blade)}return{obj:grp,radius:1.5,height:1}},40,15,100);
+  // animals (low-poly)
+  g(()=>{const grp=new e.Group;const body=tmat(13421772);const b=new e.Mesh(new e.BoxGeometry(2.2,1.4,1.2),body);b.position.y=1.2;grp.add(b);const head=new e.Mesh(new e.BoxGeometry(1.2,1,1),body);head.position.set(1.4,1.9,0);grp.add(head);const leg=tmat(8947848);for(const lx of[-.7,.7])for(const lz of[-.4,.4]){const l=new e.Mesh(new e.CylinderGeometry(.18,.18,1.2,6),leg);l.position.set(lx,.6,lz);grp.add(l)}return{obj:grp,radius:3,height:2.5}},10,30,140);
+  // safari jeep
+  g(()=>{const grp=new e.Group;const body=tmat(6579300);const b=new e.Mesh(new e.BoxGeometry(3.4,1.4,1.8),body);b.position.y=1.2;grp.add(b);const cabin=tmat(16777215,{transparent:!0,opacity:.6});const c=new e.Mesh(new e.BoxGeometry(1.8,1.1,1.6),cabin);c.position.set(-.3,2.2,0);grp.add(c);const wheel=tmat(2236962);for(const wx of[-1.2,1.2])for(const wz of[-.8,.8]){const wh=new e.Mesh(new e.CylinderGeometry(.4,.4,.3,8),wheel);wh.rotation.z=Math.PI/2;wh.position.set(wx,.4,wz);grp.add(wh)}return{obj:grp,radius:3.5,height:3}},6,40,150);
+}
+
+if(key==='gymbros'){
+  // dumbbells
+  g(()=>{const grp=new e.Group;const metal=tmat(1118481);const bar=new e.Mesh(new e.CylinderGeometry(.12,.12,2.4,8),metal);bar.rotation.z=Math.PI/2;bar.position.y=1.2;grp.add(bar);const plate=tmat(3355443);for(const px of[-1.1,1.1]){const p=new e.Mesh(new e.CylinderGeometry(.7,.7,.3,12),plate);p.rotation.z=Math.PI/2;p.position.set(px,1.2,0);grp.add(p)}return{obj:grp,radius:2,height:2}},16,20,120);
+  // protein shakers
+  g(()=>{const grp=new e.Group;const cup=tmat(16777215);const c=new e.Mesh(new e.CylinderGeometry(.5,.6,2.2,10),cup);c.position.y=1.1;grp.add(c);const lid=tmat(16711680);const l=new e.Mesh(new e.CylinderGeometry(.55,.55,.3,10),lid);l.position.y=2.3;grp.add(l);const logo=tmat(16711680);const lo=new e.Mesh(new e.BoxGeometry(.3,.6,.05),logo);lo.position.set(.55,1.2,0);grp.add(lo);return{obj:grp,radius:1.5,height:2.5}},14,20,110);
+  // weight plates
+  g(()=>{const grp=new e.Group;const plate=tmat(3355443);const p=new e.Mesh(new e.CylinderGeometry(1.1,1.1,.25,16),plate);p.position.y=.15;grp.add(p);const hole=tmat(1118481);const h=new e.Mesh(new e.CylinderGeometry(.2,.2,.3,8),hole);h.position.y=.15;grp.add(h);return{obj:grp,radius:1.5,height:.5}},20,18,110);
+  // buff NPC obstacles
+  g(()=>{const grp=new e.Group;const skin=tmat(13408563);const torso=new e.Mesh(new e.BoxGeometry(1.6,2,1),skin);torso.position.y=2.2;grp.add(torso);const head=new e.Mesh(new e.SphereGeometry(.55,8,6),skin);head.position.y=3.6;grp.add(head);const arm=tmat(13408563);for(const ax of[-1.1,1.1]){const a=new e.Mesh(new e.CylinderGeometry(.35,.35,1.6,8),arm);a.position.set(ax,2.2,0);a.rotation.z=Math.PI/2;grp.add(a)}const leg=tmat(2236962);for(const lx of[-.4,.4]){const l=new e.Mesh(new e.CylinderGeometry(.3,.3,1.4,8),leg);l.position.set(lx,.7,0);grp.add(l)}return{obj:grp,radius:2,height:4}},12,25,130);
+  // gym equipment rack
+  g(()=>{const grp=new e.Group;const frame=tmat(1118481);const f=new e.Mesh(new e.BoxGeometry(4,3.5,.4),frame);f.position.y=1.75;grp.add(f);const bar=tmat(3355443);for(let i=0;i<4;i++){const b=new e.Mesh(new e.CylinderGeometry(.08,.08,3.8,6),bar);b.position.set(0,.6+i*.7,0);b.rotation.z=Math.PI/2;grp.add(b)}return{obj:grp,radius:3,height:4}},6,40,150);
+}
+
+if(key==='border'){
+  // saguaro cacti
+  g(()=>{const grp=new e.Group;const cactus=tmat(3368703);const trunk=new e.Mesh(new e.CylinderGeometry(.5,.6,4,8),cactus);trunk.position.y=2;grp.add(trunk);for(const side of[-1,1]){const arm=new e.Mesh(new e.CylinderGeometry(.3,.35,2.2,8),cactus);arm.position.set(side*1,3.2,0);arm.rotation.z=side>0?Math.PI/3:-Math.PI/3;grp.add(arm);const top=new e.Mesh(new e.SphereGeometry(.35,6,4),cactus);top.position.set(side*1.9,4.2,0);grp.add(top)}const top2=new e.Mesh(new e.SphereGeometry(.45,6,4),cactus);top2.position.y=4.2;grp.add(top2);return{obj:grp,radius:1.5,height:4.5}},24,18,120);
+  // hacienda archways
+  g(()=>{const grp=new e.Group;const stone=tmat(13474406);const left=new e.Mesh(new e.BoxGeometry(.7,4.5,1),stone);left.position.set(-2.5,2.25,0);grp.add(left);const right=left.clone();right.position.x=2.5;grp.add(right);const arch=new e.Mesh(new e.TorusGeometry(2.5,.35,8,12,Math.PI),stone);arch.position.y=4.5;arch.rotation.z=Math.PI;grp.add(arch);const roof=new e.Mesh(new e.BoxGeometry(6,1,1.2),tmat(16737843));roof.position.y=5.2;grp.add(roof);return{obj:grp,radius:4,height:6}},8,40,140);
+  // pinatas
+  g(()=>{const grp=new e.Group;const body=tmat(16711680);const b=new e.Mesh(new e.SphereGeometry(1.3,8,6),body);b.scale.set(1,1.4,1);b.position.y=3.5;grp.add(b);const cone=tmat(16776960);const c=new e.Mesh(new e.ConeGeometry(.6,1.2,6),cone);c.position.y=5.2;grp.add(c);const leg=tmat(9074017);const l=new e.Mesh(new e.CylinderGeometry(.1,.1,2,6),leg);l.position.y=1.5;grp.add(l);return{obj:grp,radius:2,height:6}},10,25,120);
+  // sun-baked rocks
+  g(()=>{const grp=new e.Group;const rock=tmat(10066329);const r=new e.Mesh(new e.DodecahedronGeometry(1.6,0),rock);r.position.y=1;grp.add(r);const r2=new e.Mesh(new e.DodecahedronGeometry(1.1,0),rock);r2.position.set(1.2,.7,.5);grp.add(r2);return{obj:grp,radius:2.5,height:2}},16,20,120);
+  // desert bushes
+  g(()=>{const grp=new e.Group;const bush=tmat(6710886);const b=new e.Mesh(new e.SphereGeometry(1,6,4),bush);b.scale.set(1.2,.8,1.2);b.position.y=.6;grp.add(b);return{obj:grp,radius:1.5,height:1.2}},18,20,110);
+}
+
+if(key==='finalmatushka'){
+  // onion domes
+  g(()=>{const grp=new e.Group;const base=tmat(8947848);const b=new e.Mesh(new e.BoxGeometry(3.5,3,3.5),base);b.position.y=1.5;grp.add(b);const dome=tmat(3368703);const d=new e.Mesh(new e.SphereGeometry(1.8,10,8,0,Math.PI*2,0,Math.PI/2),dome);d.position.y=3.2;grp.add(d);const spire=tmat(16776960);const s=new e.Mesh(new e.ConeGeometry(.3,1.8,6),spire);s.position.y=5.2;grp.add(s);const cross=tmat(16777215);const c1=new e.Mesh(new e.BoxGeometry(.1,1.2,.1),cross);c1.position.y=6.2;grp.add(c1);const c2=new e.Mesh(new e.BoxGeometry(.6,.1,.1),cross);c2.position.y=6.5;grp.add(c2);return{obj:grp,radius:3,height:7}},12,35,150);
+  // nesting dolls
+  g(()=>{const grp=new e.Group;const colors=[16711680,16776960,3368703,16777215];const n=colors[Math.floor(rng()*colors.length)];const mat=tmat(n);const bottom=new e.Mesh(new e.SphereGeometry(1,8,6,0,Math.PI*2,0,Math.PI/2),mat);bottom.scale.set(1,1.3,1);bottom.position.y=1.3;grp.add(bottom);const top=new e.Mesh(new e.SphereGeometry(.7,8,6),mat);top.scale.set(.9,1.1,.9);top.position.y=2.6;grp.add(top);const face=tmat(16777215);const f=new e.Mesh(new e.SphereGeometry(.2,6,4),face);f.position.set(0,2.8,.65);grp.add(f);return{obj:grp,radius:2,height:3.5}},16,25,130);
+  // heavy machinery
+  g(()=>{const grp=new e.Group;const metal=tmat(1118481);const base=new e.Mesh(new e.BoxGeometry(4,2,3),metal);base.position.y=1;grp.add(base);const cabin=tmat(16737843,{transparent:!0,opacity:.5});const c=new e.Mesh(new e.BoxGeometry(1.8,1.6,2),cabin);c.position.set(-.5,2.8,.2);grp.add(c);const arm=tmat(3355443);const a2=new e.Mesh(new e.CylinderGeometry(.25,.25,4,8),arm);a2.position.set(1.5,3,0);a2.rotation.z=Math.PI/4;grp.add(a2);const bucket=new e.Mesh(new e.BoxGeometry(1.4,1,1.4),arm);bucket.position.set(3,4.5,0);grp.add(bucket);return{obj:grp,radius:4,height:5}},8,40,160);
+  // giant muscular guards
+  g(()=>{const grp=new e.Group;const skin=tmat(13421772);const torso=new e.Mesh(new e.BoxGeometry(2.2,2.6,1.4),skin);torso.position.y=2.6;grp.add(torso);const head=new e.Mesh(new e.BoxGeometry(1.2,1.2,1.2),skin);head.position.y=4.6;grp.add(head);const arm=tmat(13421772);for(const ax of[-1.5,1.5]){const a=new e.Mesh(new e.CylinderGeometry(.45,.45,2,8),arm);a.position.set(ax,2.6,0);a.rotation.z=Math.PI/2;grp.add(a)}const leg=tmat(2236962);for(const lx of[-.6,.6]){const l=new e.Mesh(new e.CylinderGeometry(.4,.4,1.8,8),leg);l.position.set(lx,.9,0);grp.add(l)}const hat=tmat(2236962);const ht=new e.Mesh(new e.CylinderGeometry(1,1,.4,8),hat);ht.position.y=5.3;grp.add(ht);return{obj:grp,radius:2.5,height:5.5}},10,30,140);
+  // ice patches (flat cylinders)
+  g(()=>{const grp=new e.Group;const ice=tmat(14540253,{transparent:!0,opacity:.7});const p=new e.Mesh(new e.CylinderGeometry(3,3,.1,12),ice);p.position.y=.05;grp.add(p);return{obj:grp,radius:3.5,height:.2}},12,20,120);
+}
+
+return h;
+}
