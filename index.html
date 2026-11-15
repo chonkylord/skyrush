@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<meta name='viewport' content='width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover' />
+<meta name='theme-color' content='#1b1f2a' />
+<title>David Hlopetki Simulator</title>
+<style>
+:root { --accent: #ff6a2b; --ink: #fff; --panel: rgba(16, 19, 28, 0.78);}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent;}
+html, body { margin: 0; height: 100%; overflow: hidden; background: #1b1f2a; color: var(--ink); font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; user-select: none; -webkit-user-select: none; touch-action: none;}
+#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block;}
+.hidden { display: none !important;}
+#hud { position: fixed; inset: 0; pointer-events: none;}
+#timer-wrap { position: absolute; top: max(12px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); text-align: center;}
+#timer { font: italic 900 40px/1 ui-monospace, 'SF Mono', Menlo, Consolas, monospace; text-shadow: 0 3px 0 rgba(0,0,0,.35); font-variant-numeric: tabular-nums;}
+#best-row { margin-top: 4px; font-size: 13px; opacity: .85; font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px rgba(0,0,0,.5);}
+#split { margin-top: 6px; display: inline-block; padding: 4px 12px; border-radius: 8px; font: italic 900 22px/1.2 ui-monospace, Menlo, monospace; opacity: 0; transform: translateY(-6px); transition: opacity .2s, transform .2s;}
+#split.show { opacity: 1; transform: none;}
+#split.good { background: rgba(40, 190, 90, .9);}
+#split.bad { background: rgba(225, 60, 60, .9);}
+#split.neutral { background: var(--panel);}
+#cp-wrap { position: absolute; top: max(14px, env(safe-area-inset-top)); left: max(14px, env(safe-area-inset-left)); background: var(--panel); padding: 8px 14px; border-radius: 12px;}
+#cp-wrap small { display: block; font-size: 11px; opacity: .7; letter-spacing: .12em;}
+#cp { font: italic 900 24px/1.1 ui-sans-serif, system-ui, sans-serif;}
+#minimap { position: absolute; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); width: 150px; height: 150px; background: rgba(16,19,28,.45); border-radius: 14px;}
+#speedo { position: absolute; right: max(18px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); text-align: right; text-shadow: 0 3px 0 rgba(0,0,0,.35);}
+#speed { font: italic 900 56px/1 ui-sans-serif, system-ui, sans-serif; font-variant-numeric: tabular-nums;}
+#speedo small { display: block; font-size: 13px; opacity: .8; letter-spacing: .15em;}
+#countdown { position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%); font: italic 900 110px/1 ui-sans-serif, system-ui, sans-serif; color: #fff; text-shadow: 0 6px 0 rgba(0,0,0,.3);}
+#help { position: absolute; left: max(14px, env(safe-area-inset-left)); bottom: max(14px, env(safe-area-inset-bottom)); font-size: 12px; opacity: .75; line-height: 1.6; text-shadow: 0 1px 2px rgba(0,0,0,.6);}
+#help kbd { background: rgba(255,255,255,.18); border-radius: 4px; padding: 1px 5px; font: 11px ui-monospace, monospace;}
+#touch { display: none;}
+body.touch #touch { display: block;}
+body.touch #help { display: none;}
+body.touch #speedo { bottom: auto; right: auto; top: calc(max(14px, env(safe-area-inset-top)) + 118px); left: max(16px, env(safe-area-inset-left)); text-align: left;}
+body.touch #speed { font-size: 36px;}
+.tbtn { position: absolute; pointer-events: auto; width: 84px; height: 84px; border-radius: 22px; background: rgba(255,255,255,.16); border: 2px solid rgba(255,255,255,.35); display: flex; align-items: center; justify-content: center; font-size: 30px; color: #fff; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);}
+.tbtn.on { background: rgba(255,106,43,.6); border-color: #ffb08a;}
+#t-left { left: max(16px, env(safe-area-inset-left)); bottom: max(22px, env(safe-area-inset-bottom));}
+#t-right { left: calc(max(16px, env(safe-area-inset-left)) + 98px); bottom: max(22px, env(safe-area-inset-bottom));}
+#t-gas { right: max(16px, env(safe-area-inset-right)); bottom: calc(max(22px, env(safe-area-inset-bottom)) + 70px); width: 96px; height: 110px;}
+#t-brake { right: calc(max(16px, env(safe-area-inset-right)) + 110px); bottom: max(22px, env(safe-area-inset-bottom)); width: 84px; height: 72px; font-size: 24px;}
+#t-drift { right: max(16px, env(safe-area-inset-right)); bottom: max(10px, env(safe-area-inset-bottom)); width: 96px; height: 52px; font-size: 13px; font-weight: 800; letter-spacing: .1em;}
+.tsmall { position: absolute; pointer-events: auto; top: calc(max(14px, env(safe-area-inset-top)) + 64px); width: 46px; height: 46px; border-radius: 12px; background: var(--panel); border: 0; color: #fff; font-size: 20px;}
+#t-pause { left: max(14px, env(safe-area-inset-left));}
+#t-reset { left: calc(max(14px, env(safe-area-inset-left)) + 54px);}
+#t-cam { left: calc(max(14px, env(safe-area-inset-left)) + 108px);}
+.screen { position: fixed; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; padding: 20px;}
+.screen.dim { background: rgba(10, 12, 18, .55); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);}
+.panel { background: var(--panel); border-radius: 22px; padding: 26px 26px 22px; width: min(560px, 100%); box-shadow: 0 20px 60px rgba(0,0,0,.35); text-align: center;}
+#menu { background: linear-gradient(180deg, rgba(10,12,20,.15), rgba(10,12,20,.55));}
+.logo { font: italic 900 clamp(34px, 8vw, 72px)/0.95 ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.02em; margin: 0; text-shadow: 0 6px 0 rgba(0,0,0,.25);}
+.logo span { color: var(--accent);}
+.tag { margin: 10px 0 22px; opacity: .85; font-size: 15px;}
+#tracks { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;}
+.card { appearance: none; border: 2px solid transparent; border-radius: 16px; background: rgba(255,255,255,.08); color: #fff; padding: 12px 14px; text-align: left; cursor: pointer; font: inherit; transition: transform .12s, background .12s;}
+.card:hover { background: rgba(255,255,255,.14); transform: translateY(-2px);}
+.card.sel { border-color: var(--accent); background: rgba(255,106,43,.16);}
+.card-top { display: flex; justify-content: space-between; align-items: center;}
+.num { font: italic 900 22px/1 ui-sans-serif, system-ui, sans-serif; color: var(--a);}
+.diffc { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; opacity: .8;}
+.card-name { font: italic 900 20px/1.2 ui-sans-serif, system-ui, sans-serif; margin: 6px 0 4px;}
+.card-best { font-size: 13px; opacity: .85; font-variant-numeric: tabular-nums;}
+.btn { appearance: none; border: 0; border-radius: 14px; padding: 14px 26px; font: italic 900 20px/1 ui-sans-serif, system-ui, sans-serif; cursor: pointer; color: #fff; background: rgba(255,255,255,.14); margin: 4px;}
+.btn.primary { background: var(--accent); box-shadow: 0 5px 0 #b8451a;}
+.btn.primary:active { transform: translateY(3px); box-shadow: 0 2px 0 #b8451a;}
+.controls { margin-top: 16px; font-size: 13px; opacity: .8; line-height: 1.7;}
+.controls kbd { background: rgba(255,255,255,.16); border-radius: 4px; padding: 1px 6px; font: 12px ui-monospace, monospace;}
+#fin-time { font: italic 900 64px/1 ui-monospace, Menlo, monospace; margin: 8px 0; font-variant-numeric: tabular-nums;}
+.diff { font-weight: 800; margin-bottom: 18px;}
+.diff.good { color: #6dff95;}
+.diff.bad { color: #ff8a80;}
+h2 { margin: 0; font: italic 900 30px/1.1 ui-sans-serif, system-ui, sans-serif;}
+#btn-mute { position: fixed; z-index: 5; bottom: max(14px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); background: var(--panel); border: 0; color: #fff; border-radius: 12px; width: 44px; height: 40px; font-size: 18px; cursor: pointer;}
+body:not(.in-menu) #btn-mute { left: auto; right: max(14px, env(safe-area-inset-right)); bottom: auto; top: 174px; transform: none;}
+body.touch:not(.in-menu) #btn-mute { top: calc(max(14px, env(safe-area-inset-top)) + 64px); left: calc(max(14px, env(safe-area-inset-left)) + 162px); right: auto; width: 46px; height: 46px;}
+#loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; font: italic 900 28px/1 system-ui, sans-serif; background: #1b1f2a; z-index: 10;}
+@media (max-width: 520px) { #tracks { grid-template-columns: 1fr;}
+#timer { font-size: 32px;}
+#minimap { width: 110px; height: 110px;}
+body:not(.in-menu) #btn-mute { top: 132px;}
+body.touch:not(.in-menu) #btn-mute { top: calc(max(14px, env(safe-area-inset-top)) + 64px);}
+.tbtn { width: 70px; height: 70px;}
+#t-right { left: calc(max(16px, env(safe-area-inset-left)) + 80px);}
+#t-gas { width: 80px; height: 96px; bottom: calc(max(22px, env(safe-area-inset-bottom)) + 62px);}
+#t-drift { width: 80px; height: 48px;}
+#t-brake { right: calc(max(16px, env(safe-area-inset-right)) + 92px); width: 70px; height: 64px;}
+}
+@media (max-height: 460px) { .panel { padding: 16px;}
+.tag { margin: 6px 0 10px;}
+.controls { display: none;}
+.logo { font-size: 32px;}
+}
+</style>
+</head>
+<body class='in-menu'>
+<canvas id='game'></canvas>
+
+<div id='hud' class='hidden'>
+  <div id='cp-wrap'><small>CHECKPOINT</small><span id='cp'>0/0</span></div>
+  <div id='timer-wrap'>
+    <div id='timer'>00:00.000</div>
+    <div id='best-row'>BEST <span id='best-time'>--:--.---</span></div>
+    <div id='split'></div>
+  </div>
+  <canvas id='minimap' width='150' height='150'></canvas>
+  <div id='speedo'><span id='speed'>0</span><small>KM/H</small></div>
+  <div id='countdown' class='hidden'>3</div>
+  <div id='help'><kbd>W A S D</kbd> / arrows drive · <kbd>Space</kbd> drift · <kbd>R</kbd> respawn · <kbd>Enter</kbd> restart · <kbd>C</kbd> camera · <kbd>Esc</kbd> pause</div>
+  <div id='touch'>
+    <div class='tbtn' id='t-left'>◀</div>
+    <div class='tbtn' id='t-right'>▶</div>
+    <div class='tbtn' id='t-gas'>▲</div>
+    <div class='tbtn' id='t-brake'>▼</div>
+    <div class='tbtn' id='t-drift'>DRIFT</div>
+    <button class='tsmall' id='t-pause'>⏸</button>
+    <button class='tsmall' id='t-reset'>↺</button>
+    <button class='tsmall' id='t-cam'>🎥</button>
+  </div>
+</div>
+
+<div id='menu' class='screen'>
+  <div class='panel'>
+    <h1 class='logo'>DAVID HLOPETKI<br><span>SIMULATOR</span></h1>
+    <div class='tag'>Low-poly time trials in the clouds. Hit every checkpoint, beat your ghost.</div>
+    <div id='tracks'></div>
+    <button class='btn primary' id='btn-play'>RACE ▶</button>
+    <div class='controls'>
+      <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows to drive · <kbd>Space</kbd> drift<br>
+      <kbd>R</kbd> respawn at checkpoint · <kbd>Enter</kbd> restart · <kbd>C</kbd> camera · <kbd>M</kbd> mute
+    </div>
+  </div>
+</div>
+
+<div id='finish' class='screen dim hidden'>
+  <div class='panel'>
+    <h2 id='fin-track'>Track</h2>
+    <div id='fin-time'>00:00.000</div>
+    <div id='fin-diff' class='diff'></div>
+    <button class='btn primary' id='btn-retry'>RETRY ↺</button>
+    <button class='btn' id='btn-menu'>MENU</button>
+  </div>
+</div>
+
+<div id='pause' class='screen dim hidden'>
+  <div class='panel'>
+    <h2>Paused</h2>
+    <div style='height:14px'></div>
+    <button class='btn primary' id='btn-resume'>RESUME</button>
+    <button class='btn' id='btn-restart'>RESTART</button>
+    <button class='btn' id='btn-quit'>MENU</button>
+  </div>
+</div>
+
+<button id='btn-mute' title='Mute (M)'>🔊</button>
+<div id='loading'>LOADING…</div>
+<script type=module src=game.js></script>
+</body>
+</html>
