@@ -50,11 +50,14 @@ body.touch #speed { font-size: 36px;}
 .screen { position: fixed; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; padding: 20px;}
 .screen.dim { background: rgba(10, 12, 18, .55); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);}
 .panel { background: var(--panel); border-radius: 22px; padding: 26px 26px 22px; width: min(560px, 100%); box-shadow: 0 20px 60px rgba(0,0,0,.35); text-align: center;}
-#menu { background: linear-gradient(180deg, rgba(10,12,20,.15), rgba(10,12,20,.55));}
-.logo { font: italic 900 clamp(34px, 8vw, 72px)/0.95 ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.02em; margin: 0; text-shadow: 0 6px 0 rgba(0,0,0,.25);}
+#menu { background: linear-gradient(180deg, rgba(10,12,20,.15), rgba(10,12,20,.55)); overflow-y: auto; align-items: flex-start; justify-content: center; padding: max(14px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); touch-action: pan-y; overscroll-behavior: contain;}
+#menu .panel { width: min(1000px, 100%); flex: 0 0 auto; margin: auto 0; padding: clamp(16px, 2.2vw, 28px);}
+.logo { font: italic 900 clamp(32px, 5vw, 56px)/0.95 ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.02em; margin: 0; text-shadow: 0 6px 0 rgba(0,0,0,.25);}
 .logo span { color: var(--accent);}
 .tag { margin: 10px 0 22px; opacity: .85; font-size: 15px;}
-#tracks { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;}
+#tracks { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)) !important; gap: 10px; margin-bottom: 14px;}
+#cars { grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)) !important;}
+#tracks .card { padding: 10px 12px;}
 .card { appearance: none; border: 2px solid transparent; border-radius: 16px; background: rgba(255,255,255,.08); color: #fff; padding: 12px 14px; text-align: left; cursor: pointer; font: inherit; transition: transform .12s, background .12s;}
 .card:hover { background: rgba(255,255,255,.14); transform: translateY(-2px);}
 .card.sel { border-color: var(--accent); background: rgba(255,106,43,.16);}
@@ -68,6 +71,10 @@ body.touch #speed { font-size: 36px;}
 .btn.primary:active { transform: translateY(3px); box-shadow: 0 2px 0 #b8451a;}
 .controls { margin-top: 16px; font-size: 13px; opacity: .8; line-height: 1.7;}
 .controls kbd { background: rgba(255,255,255,.16); border-radius: 4px; padding: 1px 6px; font: 12px ui-monospace, monospace;}
+.madeby { display: inline-flex; align-items: center; justify-content: center; gap: 12px; max-width: 100%; margin-top: 16px; padding: 8px 12px; border-radius: 12px; background: #f4f0e8; color: #263f59; text-decoration: none; font-size: 15px; line-height: 1.2;}
+.madeby:hover { background: #fff; transform: translateY(-1px);}
+.madeby img { display: block; width: min(142px, 38vw); height: auto;}
+.madeby:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px;}
 #fin-time { font: italic 900 64px/1 ui-monospace, Menlo, monospace; margin: 8px 0; font-variant-numeric: tabular-nums;}
 .diff { font-weight: 800; margin-bottom: 18px;}
 .diff.good { color: #6dff95;}
@@ -77,7 +84,10 @@ h2 { margin: 0; font: italic 900 30px/1.1 ui-sans-serif, system-ui, sans-serif;}
 body:not(.in-menu) #btn-mute { left: auto; right: max(14px, env(safe-area-inset-right)); bottom: auto; top: 174px; transform: none;}
 body.touch:not(.in-menu) #btn-mute { top: calc(max(14px, env(safe-area-inset-top)) + 64px); left: calc(max(14px, env(safe-area-inset-left)) + 162px); right: auto; width: 46px; height: 46px;}
 #loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; font: italic 900 28px/1 system-ui, sans-serif; background: #1b1f2a; z-index: 10;}
-@media (max-width: 520px) { #tracks { grid-template-columns: 1fr;}
+@media (max-width: 520px) { #tracks { grid-template-columns: repeat(auto-fit, minmax(min(100%, 145px), 1fr)) !important;}
+#cars { grid-template-columns: repeat(auto-fit, minmax(min(100%, 145px), 1fr)) !important;}
+#menu .panel { border-radius: 18px;}
+.madeby { gap: 8px; font-size: 13px;}
 #timer { font-size: 32px;}
 #minimap { width: 110px; height: 110px;}
 body:not(.in-menu) #btn-mute { top: 132px;}
@@ -88,9 +98,11 @@ body.touch:not(.in-menu) #btn-mute { top: calc(max(14px, env(safe-area-inset-top
 #t-drift { width: 80px; height: 48px;}
 #t-brake { right: calc(max(16px, env(safe-area-inset-right)) + 92px); width: 70px; height: 64px;}
 }
+@media (max-height: 600px) { #menu .tag { margin: 6px 0 12px;}
+#menu .controls { display: none;}
+#menu .madeby { margin-top: 10px;}
+}
 @media (max-height: 460px) { .panel { padding: 16px;}
-.tag { margin: 6px 0 10px;}
-.controls { display: none;}
 .logo { font-size: 32px;}
 }
 </style>
@@ -131,6 +143,10 @@ body.touch:not(.in-menu) #btn-mute { top: calc(max(14px, env(safe-area-inset-top
       <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows to drive · <kbd>Space</kbd> drift<br>
       <kbd>R</kbd> respawn at checkpoint · <kbd>Enter</kbd> restart · <kbd>C</kbd> camera · <kbd>M</kbd> mute
     </div>
+    <a class='madeby' href='https://www.advaitstechhub.com' target='_blank' rel='noopener noreferrer' aria-label='Made by Advait’s Tech Hub, visit advaitstechhub.com'>
+      <span>Made by <b>AdvaitsTechHub</b></span>
+      <img src='/img/advaits-logo.png' alt="Advait's Tech Hub logo">
+    </a>
   </div>
 </div>
 
