@@ -56,3 +56,5 @@ t.setMatrixAt(n,u),n++}e.count=t.count=n};P(f,y,o),P(p,m,n),h.add(f,y,p,m)}{cons
 },s=new e.CylinderGeometry(.08,.1,6,5);s.translate(0,3,0);const i=new e.PlaneGeometry(2.4,1.6);i.translate(1.2,0,0);let a=0;for(let t=10;t<l-10;t+=22)if(!m[t]&&!m[t-1]){for(const r of[-1,1]){
 const c=M[t].clone().addScaledVector(f[t],r*(G+.7)),d=new e.Mesh(s,o);d.position.copy(c),h.add(d);const w=new e.Mesh(i,(a+(r>0?1:0))%2?n.md:n.ru);w.position.copy(c).add(new e.Vector3(0,5.1,0));const l=p[t].clone().negate();l.y=0,
 l.normalize(),w.rotation.y=Math.atan2(-l.z,l.x),h.add(w)}a++}}return h}
+import{buildThemedDecor as themed}from'./decor_themes.js';
+export function buildThemedDecor(key,i,a,c,d=7){if(key==='funk')return buildFunkDecor(i,a,c,d);return themed(key,i,a,c,d)}
