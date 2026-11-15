@@ -65,7 +65,7 @@ const {N:l,P:M,R:f,U:y,T:p,gapSample:m,width:u}=i;
 const G=u/2;
 const x=(ex,tz,o,n,s)=>{for(let r=0;r<l;r+=3){const ii=M[r],aa=ii.x-ex,cc=ii.z-tz;if(Math.sqrt(aa*aa+cc*cc)<o+G+6&&ii.y-2<s+n)return!1}return!0};
 const I=(e,t)=>{const o=Math.floor(w()*(l-20))+10,n=w()<.5?-1:1,s=e+w()*(t-e);return{x:M[o].x+f[o].x*s*n+10*(w()-.5),z:M[o].z+f[o].z*s*n+10*(w()-.5),i:o}};
-const g=(factory,count,emin,emax,maxtries=60)=>{let r=0;for(let ii=0;ii<count*maxtries&&r<count;ii++){const pt=I(emin,emax),obj=factory(w);const ground=a(pt.x,pt.z);if(x(pt.x,pt.z,obj.radius,obj.height,ground)){obj.obj.position.set(pt.x,ground-.3,pt.z);obj.obj.lookAt(M[pt.i].x,ground,M[pt.i].z);h.add(obj.obj);r++}}};
+const g=(factory,count,emin,emax,maxtries=60)=>{let r=0;for(let ii=0;ii<count*maxtries*2&&r<count*2;ii++){const pt=I(emin,emax),obj=factory(w);obj.obj.scale.setScalar(2.5);const ground=a(pt.x,pt.z);if(x(pt.x,pt.z,obj.radius*2.5,obj.height*2.5,ground)){obj.obj.position.set(pt.x,ground-.3,pt.z);obj.obj.lookAt(M[pt.i].x,ground,M[pt.i].z);h.add(obj.obj);r++}}};
 const tmat=(col,o={})=>new e.MeshLambertMaterial({color:col,flatShading:!0,...o});
 const rng=w;
 

@@ -81,7 +81,7 @@ try{localStorage.setItem('skyrush_best_'+t,JSON.stringify(e))}catch{}}(G.def.id,
 o.className='diff good'),A('fin-track').textContent=G.def.name,setTimeout((()=>{'finished'===$.mode&&rt('finish')}),900)}():C.beep(1040,.12,.1)}const U=new t.Vector3,W=new t.Vector3,j=new t.Vector3,Z=new t.Vector3,X=new t.Vector3
 ;let J=new t.Vector3(0,0,-1);function tt(t){return t.set(0,0,-1).applyQuaternion(q.quat),t.y=0,t.lengthSq()<1e-4&&t.copy(J),t.normalize()}function et(){tt(J),U.copy(q.pos).addScaledVector(J,-7).add(Z.set(0,2.6,0)),
 W.copy(q.pos).addScaledVector(J,3)}let nt=0;const ot=A('minimap'),st=ot.getContext('2d');let it=null,at=null;function rt(t){for(const e of['menu','finish','pause'])A(e).classList.toggle('hidden',e!==t)
-;document.body.classList.toggle('in-menu','menu'===t)}function ct(){const e=A('tracks');e.innerHTML='',e.style.gridTemplateColumns=window.innerWidth>760?'repeat(4,1fr)':window.innerWidth>520?'repeat(2,1fr)':'1fr';const n=window.innerHeight<560
+;document.body.classList.toggle('in-menu','menu'===t)}function ct(){const e=A('tracks');e.innerHTML='',e.style.gridTemplateColumns=window.innerWidth>520?'repeat(2,1fr)':'1fr';const n=window.innerHeight<560
 ;A('menu').style.overflowY='auto',A('menu').style.alignItems=n?'flex-start':'center';const o=document.querySelector('#menu .tag');o&&(o.style.display=n?'none':''),N(),T.forEach(((n,o)=>{const s=F(n.def.id),i=document.createElement('button')
 ;i.className='card'+(o===E?' sel':'');const a='#'+new t.Color(n.def.theme.accent).getHexString()
 ;i.innerHTML=`<div class='card-top' style='--a:${a}'><span class='num'>${o+1}</span><span class='diffc'>${n.def.difficulty}</span></div><div class='card-name'>${n.def.name}</div><div class='card-best'>Best <b>${s?z(s.time):'—'}</b></div>`,
