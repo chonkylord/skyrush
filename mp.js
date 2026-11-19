@@ -10,8 +10,7 @@
 //   when connecting, so racing doesn't use up Vercel's free plan.
 import { api, SkyCloud } from './cloud.js';
 
-const SEND_MS = 66;          // ~15 position updates/s while racing
-const INTERP_DELAY = 0.2;    // seconds opponents are drawn behind the shared race clock
+const SEND_MS = 50;          // 20 position updates/s while racing
 const MAX_SNAPS = 60;
 const IDLE_MS = 15 * 60e3;   // drop the connection after 15 min idle in the menu so Render can sleep
 
@@ -150,7 +149,7 @@ function onServer(msg) {
       else render();
       break;
     case 'state': {
-      const s = { t: msg.t, p: msg.p, cp: msg.cp };
+      const s = { t: msg.t, p: msg.p, cp: msg.cp, at: performance.now() / 1000 };
       states.set(msg.id, s);
       const g = ghosts.get(msg.id);
       if (g && (!g.snaps.length || s.t > g.snaps[g.snaps.length - 1].t)) {
@@ -186,6 +185,12 @@ const isHost = () => !!data && data.room.hostId === data.me;
 const trackIdx = (id) => game.tracks.findIndex((t) => t.id === id);
 const trackName = (id) => game.tracks[trackIdx(id)]?.name || id;
 const carName = (id) => game.cars.find((c) => c.id === id)?.name || '—';
+const carOpen = (c) => !c.owner || !!(SkyCloud.user && SkyCloud.user.username.toLowerCase() === c.owner);
+function fillCars() {
+  if (!els.car || !game) return;
+  const html = game.cars.map((c, i) => (carOpen(c) ? `<option value='${i}'>${esc(c.name)} · ${esc(c.tag)}</option>` : '')).join('');
+  if (els.car._h !== html) { els.car._h = html; els.car.innerHTML = html; }
+}
 const mode = () => game.state().mode;
 const inLiveRace = () => !!data && data.room.status === 'racing' && launchedRace === data.room.raceNo
   && (mode() === 'countdown' || mode() === 'racing');
@@ -359,36 +364,77 @@ function dropGhost(id) {
 
 function syncGhosts() {
   const keep = new Set();
+  let created = false;
   for (const p of data.players) {
     if (p.id === data.me || !p.racing) continue;
     keep.add(p.id);
+    if (ghosts.get(p.id)?.car !== p.car) created = true;
     const g = ghostFor(p);
     g.done = p.finish != null || p.dnf || data.room.status !== 'racing';
     const s = p.state; // last known position (useful after a reconnect)
-    if (s && Array.isArray(s.p) && (!g.snaps.length || s.t > g.snaps[g.snaps.length - 1].t)) g.snaps.push(s);
+    if (s && Array.isArray(s.p) && !g.snaps.length) g.snaps.push({ ...s, at: performance.now() / 1000 });
   }
   for (const id of [...ghosts.keys()]) if (!keep.has(id)) dropGhost(id);
+  if (created) warmGhosts();
 }
 
-let tmpQ = null;
+// Compile the see-through car materials now (during "Get ready"), not on the
+// first frame they appear, which is what caused the freeze right at GO.
+function warmGhosts() {
+  const groups = [...ghosts.values()].map((g) => g.obj.group);
+  for (const grp of groups) grp.visible = true;
+  try { game.warm(); } catch (e) { console.warn('[skyrush] warm-up failed', e); }
+  for (const grp of groups) grp.visible = false;
+}
+
+// Each opponent is drawn on their own clock, mapped onto ours from when their
+// updates actually arrive. So it doesn't matter if their game started a touch
+// late or dropped frames: they move smoothly instead of stalling and jumping.
+const JITTER = 0.1;      // seconds of buffer against network jitter
+const MAX_EXTRAP = 0.25; // keep moving this long if updates pause
+let tmpQ = null, tmpQ2 = null, tmpV = null, lastFrame = performance.now();
 function frame() {
   requestAnimationFrame(frame);
+  const nowMs = performance.now();
+  const dt = Math.min(0.1, (nowMs - lastFrame) / 1000);
+  lastFrame = nowMs;
   if (!game) return;
   const show = !!data && data.room.status === 'racing' && launchedRace === data.room.raceNo && mode() !== 'menu';
-  if (!show) { for (const g of ghosts.values()) g.obj.group.visible = false; return; }
-  tmpQ ??= new game.THREE.Quaternion();
-  const rt = (serverNow() - data.room.startAt) / 1000 - INTERP_DELAY; // shared race clock
+  if (!show) { for (const g of ghosts.values()) { g.obj.group.visible = false; g.shown = false; } return; }
+  const { THREE } = game;
+  tmpQ ??= new THREE.Quaternion(); tmpQ2 ??= new THREE.Quaternion(); tmpV ??= new THREE.Vector3();
+  const now = nowMs / 1000;
   for (const g of ghosts.values()) {
     const s = g.snaps, grp = g.obj.group;
-    if (g.done || !s.length || rt < 0) { grp.visible = false; continue; }
-    let a = s[s.length - 1], b = a;
-    if (rt <= s[0].t) a = b = s[0];
-    else for (let i = s.length - 1; i > 0; i--) if (s[i - 1].t <= rt) { a = s[i - 1]; b = s[i]; break; }
-    const k = b.t > a.t ? Math.min(1, Math.max(0, (rt - a.t) / (b.t - a.t))) : 0;
-    grp.position.set(a.p[0] + (b.p[0] - a.p[0]) * k, a.p[1] + (b.p[1] - a.p[1]) * k, a.p[2] + (b.p[2] - a.p[2]) * k);
-    grp.quaternion.set(a.p[3], a.p[4], a.p[5], a.p[6]);
-    if (k > 0) grp.quaternion.slerp(tmpQ.set(b.p[3], b.p[4], b.p[5], b.p[6]), k);
+    if (g.done || !s.length) { grp.visible = false; g.shown = false; continue; }
+    let off = Infinity;
+    for (const x of s) off = Math.min(off, x.at - x.t); // lowest-lag sample in the last ~3 s
+    const rt = now - off - JITTER;
+    const last = s[s.length - 1];
+    if (rt >= last.t) {
+      const prev = s.length > 1 ? s[s.length - 2] : last;
+      const span = last.t - prev.t;
+      const e = span > 0 ? Math.min(rt - last.t, MAX_EXTRAP) / span : 0;
+      tmpV.set(last.p[0] + (last.p[0] - prev.p[0]) * e, last.p[1] + (last.p[1] - prev.p[1]) * e, last.p[2] + (last.p[2] - prev.p[2]) * e);
+      tmpQ.set(last.p[3], last.p[4], last.p[5], last.p[6]);
+    } else {
+      let a = s[0], b = s[0];
+      if (rt > s[0].t) for (let i = s.length - 1; i > 0; i--) if (s[i - 1].t <= rt) { a = s[i - 1]; b = s[i]; break; }
+      const k = b.t > a.t ? (rt - a.t) / (b.t - a.t) : 0;
+      tmpV.set(a.p[0] + (b.p[0] - a.p[0]) * k, a.p[1] + (b.p[1] - a.p[1]) * k, a.p[2] + (b.p[2] - a.p[2]) * k);
+      tmpQ.set(a.p[3], a.p[4], a.p[5], a.p[6]);
+      if (k > 0) tmpQ.slerp(tmpQ2.set(b.p[3], b.p[4], b.p[5], b.p[6]), k);
+    }
+    if (!g.shown || grp.position.distanceTo(tmpV) > 12) {
+      grp.position.copy(tmpV); // first frame or a respawn: jump straight there
+      grp.quaternion.copy(tmpQ);
+    } else {
+      const k = 1 - Math.exp(-20 * dt); // ease toward the target to hide any remaining jitter
+      grp.position.lerp(tmpV, k);
+      grp.quaternion.slerp(tmpQ, k);
+    }
     grp.visible = true;
+    g.shown = true;
   }
 }
 
@@ -438,7 +484,7 @@ function buildUI() {
   document.body.appendChild(overlay);
   for (const el of overlay.querySelectorAll('[data-el]')) els[el.dataset.el] = el;
   els.track.innerHTML = game.tracks.map((t, i) => `<option value='${i}'>${esc(t.name)} · ${esc(t.difficulty)}</option>`).join('');
-  els.car.innerHTML = game.cars.map((c, i) => `<option value='${i}'>${esc(c.name)} · ${esc(c.tag)}</option>`).join('');
+  fillCars();
 
   els.track.addEventListener('change', () => {
     const t = game.tracks[+els.track.value];
@@ -480,15 +526,14 @@ function buildUI() {
   });
 
   // While the panel is up, keep keys away from the game's hotkeys (Space = race, C = car, M = mute...).
-  for (const type of ['keydown', 'keyup']) {
-    window.addEventListener(type, (e) => {
-      if (overlay.classList.contains('hidden')) return;
-      const auth = document.getElementById('auth');
-      if (auth && !auth.classList.contains('hidden')) return;
-      e.stopPropagation();
-      if (type === 'keydown' && e.key === 'Escape' && !data) { homeOpen = false; notice = ''; render(); }
-    }, true);
-  }
+  // Only keydown is held back: keyup always reaches the game so a held key can't get stuck.
+  window.addEventListener('keydown', (e) => {
+    if (overlay.classList.contains('hidden')) return;
+    const auth = document.getElementById('auth');
+    if (auth && !auth.classList.contains('hidden')) return;
+    e.stopPropagation();
+    if (e.key === 'Escape' && !data) { homeOpen = false; notice = ''; render(); }
+  }, true);
 
   hud = Object.assign(document.createElement('div'), { id: 'mp-hud', className: 'hidden' });
   document.getElementById('hud').appendChild(hud);
@@ -499,6 +544,7 @@ function buildUI() {
   window.addEventListener('skyrush:auth', (e) => {
     if (!e.detail.user) { disconnect(); clearRoom(); invites = []; homeOpen = false; ticketCache = null; }
     else connect();
+    fillCars();
     render();
   });
   document.addEventListener('visibilitychange', () => { if (!document.hidden) connect(); });

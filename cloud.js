@@ -163,12 +163,11 @@ function buildUI() {
   document.body.appendChild(modal);
 
   // Keep typing out of the game's hotkeys (M = mute, R = respawn, Enter = race...).
-  for (const type of ['keydown', 'keyup']) {
-    modal.addEventListener(type, (e) => {
-      e.stopPropagation();
-      if (type === 'keydown' && e.key === 'Escape') closeAuth();
-    });
-  }
+  // keyup is let through so a key held while the dialog opens can't get stuck in the game.
+  modal.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Escape') closeAuth();
+  });
   modal.addEventListener('pointerdown', (e) => { if (e.target === modal) closeAuth(); });
   form.querySelector('[data-cancel]').addEventListener('click', closeAuth);
   form.querySelector('[data-switch]').addEventListener('click', () => setMode(mode === 'login' ? 'signup' : 'login'));

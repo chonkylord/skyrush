@@ -147,7 +147,14 @@ function joinRoom(user, room, car) {
 // ---- message handling -------------------------------------------------------------
 
 const err = (ws, text) => send(ws, { type: 'error', text });
-const carOf = (v) => (typeof v === 'string' && ID_RE.test(v) ? v : null);
+// Cars only one account may drive. Anyone else sending the id is treated as "no car".
+const SECRET_CAR = { hub: 'advaitstechhub' };
+const carOf = (v, user) => {
+  if (typeof v !== 'string' || !ID_RE.test(v)) return null;
+  const owner = SECRET_CAR[v];
+  if (owner && (!user || String(user.name).toLowerCase() !== owner)) return null;
+  return v;
+};
 
 function onMessage(user, ws, msg) {
   const room = user.roomId ? rooms.get(user.roomId) : null;
@@ -162,7 +169,7 @@ function onMessage(user, ws, msg) {
       if (typeof msg.track !== 'string' || !ID_RE.test(msg.track)) return err(ws, 'Bad track.');
       const r = { id: newRoomId(), track: msg.track, status: 'lobby', raceNo: 0, startAt: null, hostId: user.id, members: new Map(), invited: new Map(), capTimer: null };
       rooms.set(r.id, r);
-      return joinRoom(user, r, carOf(msg.car));
+      return joinRoom(user, r, carOf(msg.car, user));
     }
 
     case 'invite': {
@@ -186,7 +193,7 @@ function onMessage(user, ws, msg) {
       const at = r.invited.get(user.id);
       if (!r.members.has(user.id) && !(at && Date.now() - at < INVITE_TTL_MS)) return err(ws, 'That invite has expired.');
       if (!r.members.has(user.id) && r.members.size >= MAX_PLAYERS) return err(ws, 'The room is full.');
-      return joinRoom(user, r, carOf(msg.car));
+      return joinRoom(user, r, carOf(msg.car, user));
     }
 
     case 'decline': {
@@ -200,7 +207,7 @@ function onMessage(user, ws, msg) {
 
     case 'car': {
       if (!member) return;
-      member.car = carOf(msg.car) || member.car;
+      member.car = carOf(msg.car, user) || member.car;
       return pushRoom(room);
     }
 
