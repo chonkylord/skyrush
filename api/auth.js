@@ -1,7 +1,9 @@
 // GET  /api/auth                                  -> { user } (null when signed out)
+// GET  /api/auth?ticket                           -> { ticket, server } for the Render multiplayer server
 // POST /api/auth { action: 'signup', username, password }
 // POST /api/auth { action: 'login',  username, password }
 // POST /api/auth { action: 'logout' }
+import { sign as cryptoSign } from 'node:crypto';
 import { db, ensureSchema } from './_lib/db.js';
 import {
   handle, send, readJson, currentUser, createSession, destroySession,
@@ -9,12 +11,24 @@ import {
 } from './_lib/auth.js';
 
 const USERNAME_RE = /^[A-Za-z0-9_-]{3,20}$/;
+// Render's URL for the service in render.yaml; override with the MP_SERVER_URL env var.
+const DEFAULT_MP_SERVER = 'wss://david-hlopetki-mp.onrender.com';
 
 export default handle(async (req, res) => {
   await ensureSchema();
 
   if (req.method === 'GET') {
-    return send(res, 200, { user: await currentUser(req) });
+    const user = await currentUser(req);
+    const wantsTicket = (req.query?.ticket ?? new URL(req.url, 'http://x').searchParams.get('ticket')) != null;
+    if (!wantsTicket) return send(res, 200, { user });
+    // Short-lived signed pass for the multiplayer server on Render. It checks the
+    // signature with the public key in mp-server/, so it never touches the DB.
+    if (!user) return send(res, 401, { error: 'Sign in to play multiplayer.' });
+    const key = process.env.MP_TICKET_KEY;
+    if (!key) return send(res, 503, { error: 'Multiplayer is not set up yet.' });
+    const payload = Buffer.from(JSON.stringify({ uid: user.id, name: user.username, exp: Date.now() + 60_000 })).toString('base64url');
+    const sig = cryptoSign(null, Buffer.from(payload), key.replace(/\\n/g, '\n')).toString('base64url');
+    return send(res, 200, { ticket: `${payload}.${sig}`, server: process.env.MP_SERVER_URL || DEFAULT_MP_SERVER });
   }
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'GET, POST');

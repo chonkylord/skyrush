@@ -22,7 +22,7 @@ let user = null;
 let syncing = null;
 let statusText = '';
 
-async function api(path, { method = 'GET', body } = {}) {
+export async function api(path, { method = 'GET', body } = {}) {
   const res = await fetch(path, {
     method,
     credentials: 'same-origin',
@@ -60,6 +60,7 @@ function clearLocalBests() {
 }
 
 const notify = () => window.dispatchEvent(new CustomEvent('skyrush:bests'));
+const authChanged = () => window.dispatchEvent(new CustomEvent('skyrush:auth', { detail: { user } }));
 
 function upload(track, rec) {
   return api('/api/scores', {
@@ -216,6 +217,7 @@ async function onSubmit(e) {
     user = data.user;
     form.password.value = '';
     closeAuth();
+    authChanged();
     setStatus('Syncing…');
     render();
     await sync();
@@ -233,6 +235,7 @@ async function signOut() {
     user = null;
     statusText = '';
     render();
+    authChanged();
   } catch (err) {
     setStatus("Couldn't sign out");
   } finally {
@@ -262,6 +265,10 @@ function render() {
 // ---- hooks called from game.js ------------------------------------------
 
 export const SkyCloud = {
+  get user() { return user; },
+  get available() { return available; },
+  openAuth(from) { openAuth('login', from); },
+
   // A new personal best was just written to localStorage.
   save(track, rec) {
     if (!available || !user) return;
@@ -301,6 +308,7 @@ api('/api/auth')
     available = true;
     user = data.user;
     render();
+    authChanged();
     if (user) sync();
   })
   .catch((err) => {
