@@ -25,8 +25,8 @@ const START_DELAY_MS = 5000;     // countdown lead so every client lines up
 const RACE_MAX_MS = 10 * 60e3;
 const DROP_GRACE_MS = 10e3;      // reconnect window before a dropped player is out
 const INVITE_TTL_MS = 10 * 60e3;
-const FINISH_SLACK_LATE = 2;     // seconds a reported time may exceed the server clock
-const FINISH_SLACK_EARLY = 15;   // ...or trail it (late start, frame drops)
+const FINISH_SLACK_LATE = 5;     // seconds a reported time may exceed the server clock (clock-sync error)
+const FINISH_SLACK_EARLY = 60;   // ...or trail it (late start, slow machine dropping frames, short freezes)
 const ID_RE = /^[a-z0-9_-]{1,32}$/;
 const NAME_RE = /^[A-Za-z0-9_-]{3,20}$/;
 

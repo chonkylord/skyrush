@@ -285,7 +285,12 @@ function planLaunch() {
 }
 
 function onLocalFinish(time) {
-  if (!data || launchedRace !== data.room.raceNo || data.room.status !== 'racing') return;
+  if (!data || launchedRace !== data.room.raceNo) return;
+  if (data.room.status !== 'racing') {
+    myResult = { raceNo: launchedRace, time, pending: false, error: `You finished in ${fmt(time)}, but the race had already been closed.` };
+    render();
+    return;
+  }
   myResult = { raceNo: launchedRace, time, pending: true };
   sendMsg({ type: 'finish', raceNo: launchedRace, time }); // resent on reconnect until acked
   render();
