@@ -1,0 +1,11 @@
+{
+  "name": "david-hlopetki-simulator",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.2.1"
+  }
+}
