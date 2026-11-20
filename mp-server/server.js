@@ -27,6 +27,8 @@ const DROP_GRACE_MS = 10e3;      // reconnect window before a dropped player is 
 const INVITE_TTL_MS = 10 * 60e3;
 const FINISH_SLACK_LATE = 5;     // seconds a reported time may exceed the server clock (clock-sync error)
 const FINISH_SLACK_EARLY = 60;   // ...or trail it (late start, slow machine dropping frames, short freezes)
+const MAX_ROUNDS = 10;
+const POINTS = [10, 8, 6, 5, 4, 3, 2, 1]; // per finishing place in a round; DNF scores 0
 const ID_RE = /^[a-z0-9_-]{1,32}$/;
 const NAME_RE = /^[A-Za-z0-9_-]{3,20}$/;
 
@@ -68,12 +70,27 @@ function makeMember(user, car) {
   return { id: user.id, name: user.name, car, joinedAt: Date.now(), connected: true, raceNo: 0, finish: null, dnf: false, state: null };
 }
 
+// Series standings: most points, then most round wins, then best average place.
+function seriesTable(room) {
+  return [...room.series.values()]
+    .map((e) => ({
+      id: e.id, username: e.name, pts: e.pts, wins: e.wins, results: e.results,
+      inRoom: room.members.has(e.id),
+    }))
+    .sort((a, b) => b.pts - a.pts || b.wins - a.wins || a.username.localeCompare(b.username));
+}
+
+const seriesRunning = (room) => room.round > 0 && room.round < room.rounds;
+
 function snapshot(room) {
   return {
     id: room.id,
     track: room.track,
     status: room.status,
     raceNo: room.raceNo,
+    rounds: room.rounds,
+    round: room.round,
+    standings: room.round > 0 ? seriesTable(room) : [],
     startAt: room.startAt,
     hostId: room.hostId,
     players: [...room.members.values()].map((m) => {
@@ -113,7 +130,40 @@ function settle(room) {
     room.status = 'finished';
     clearTimeout(room.capTimer);
     for (const m of entrants) { m.state = null; if (m.finish == null) m.dnf = true; }
+    award(room, entrants);
   }
+}
+
+// Points for the round that just finished. Equal times share a place.
+function award(room, entrants) {
+  const fin = entrants.filter((m) => m.finish != null).sort((a, b) => a.finish - b.finish);
+  let place = 0;
+  fin.forEach((m, i) => { if (i === 0 || m.finish !== fin[i - 1].finish) place = i + 1; m.place = place; });
+  for (const m of entrants) {
+    let e = room.series.get(m.id);
+    if (!e) { e = { id: m.id, name: m.name, pts: 0, wins: 0, results: [] }; room.series.set(m.id, e); }
+    e.name = m.name;
+    const placed = m.finish != null ? m.place : null;
+    const pts = placed ? (POINTS[placed - 1] ?? 0) : 0;
+    e.pts += pts;
+    if (placed === 1) e.wins++;
+    e.results.push({ round: room.round, track: room.track, place: placed, time: m.finish, pts });
+  }
+}
+
+// Starts the next round (or a fresh series when the last one is over).
+function startRound(room) {
+  const present = [...room.members.values()].filter((m) => m.connected);
+  if (present.length < 2) return 'You need at least 2 players in the lobby.';
+  if (!seriesRunning(room)) { room.series.clear(); room.round = 0; }
+  room.round++;
+  room.raceNo++;
+  room.status = 'racing';
+  room.startAt = Date.now() + START_DELAY_MS;
+  for (const m of present) Object.assign(m, { raceNo: room.raceNo, finish: null, dnf: false, state: null, place: null });
+  clearTimeout(room.capTimer);
+  room.capTimer = setTimeout(() => { settle(room); pushRoom(room); }, START_DELAY_MS + RACE_MAX_MS + 1000);
+  return null;
 }
 
 function leaveRoom(userId) {
@@ -167,7 +217,11 @@ function onMessage(user, ws, msg) {
 
     case 'create': {
       if (typeof msg.track !== 'string' || !ID_RE.test(msg.track)) return err(ws, 'Bad track.');
-      const r = { id: newRoomId(), track: msg.track, status: 'lobby', raceNo: 0, startAt: null, hostId: user.id, members: new Map(), invited: new Map(), capTimer: null };
+      const r = {
+        id: newRoomId(), track: msg.track, status: 'lobby', raceNo: 0, startAt: null, hostId: user.id,
+        members: new Map(), invited: new Map(), capTimer: null,
+        rounds: 1, round: 0, series: new Map(),
+      };
       rooms.set(r.id, r);
       return joinRoom(user, r, carOf(msg.car, user));
     }
@@ -219,17 +273,42 @@ function onMessage(user, ws, msg) {
       return pushRoom(room);
     }
 
+    case 'rounds': {
+      if (!isHost) return err(ws, 'Only the host can change the number of rounds.');
+      if (room.status !== 'lobby') return err(ws, 'Wait for the race to end.');
+      if (seriesRunning(room)) return err(ws, 'Finish or end the current series first.');
+      const n = msg.rounds;
+      if (!Number.isInteger(n) || n < 1 || n > MAX_ROUNDS) return err(ws, 'Bad number of rounds.');
+      room.rounds = n;
+      room.round = 0;
+      room.series.clear();
+      return pushRoom(room);
+    }
+
+    case 'endSeries': {
+      if (!isHost) return err(ws, 'Only the host can do that.');
+      if (room.status === 'racing') return err(ws, 'Wait for the race to end.');
+      room.round = 0;
+      room.series.clear();
+      if (room.status === 'finished') room.status = 'lobby';
+      return pushRoom(room);
+    }
+
     case 'start': {
       if (!isHost) return err(ws, 'Only the host can start the race.');
       if (room.status !== 'lobby') return err(ws, 'A race is already running.');
-      const present = [...room.members.values()].filter((m) => m.connected);
-      if (present.length < 2) return err(ws, 'You need at least 2 players in the lobby.');
-      room.raceNo++;
-      room.status = 'racing';
-      room.startAt = Date.now() + START_DELAY_MS;
-      for (const m of present) Object.assign(m, { raceNo: room.raceNo, finish: null, dnf: false, state: null });
-      clearTimeout(room.capTimer);
-      room.capTimer = setTimeout(() => { settle(room); pushRoom(room); }, START_DELAY_MS + RACE_MAX_MS + 1000);
+      const e = startRound(room);
+      if (e) return err(ws, e);
+      return pushRoom(room);
+    }
+
+    case 'next': {
+      // Straight into the next round on the same track (host skips the lobby).
+      if (!isHost) return err(ws, 'Only the host can start the next round.');
+      if (room.status !== 'finished') return;
+      room.status = 'lobby';
+      const e = startRound(room);
+      if (e) { pushRoom(room); return err(ws, e); }
       return pushRoom(room);
     }
 

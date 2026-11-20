@@ -192,6 +192,13 @@ function fillCars() {
   if (els.car._h !== html) { els.car._h = html; els.car.innerHTML = html; }
 }
 const mode = () => game.state().mode;
+const ROUND_CHOICES = [1, 2, 3, 4, 5, 7, 10];
+const multiRound = () => !!data && data.room.rounds > 1;
+const seriesRunning = () => !!data && data.room.round > 0 && data.room.round < data.room.rounds;
+const seriesOver = () => !!data && data.room.round > 0 && data.room.round >= data.room.rounds;
+const nextRound = () => (seriesRunning() ? data.room.round + 1 : 1);
+const roundTag = () => (multiRound() && data.room.round > 0 ? `Round ${data.room.round}/${data.room.rounds}` : '');
+const ordinal = (n) => n + (['th', 'st', 'nd', 'rd'][(n % 100 - 20) % 10] || ['th', 'st', 'nd', 'rd'][n % 100] || 'th');
 const inLiveRace = () => !!data && data.room.status === 'racing' && launchedRace === data.room.raceNo
   && (mode() === 'countdown' || mode() === 'racing');
 
@@ -478,6 +485,7 @@ function buildUI() {
       <div class='mp-pickers' data-el='pickers'>
         <label><span>Track</span><select data-el='track'></select></label>
         <label><span>Your car</span><select data-el='car'></select></label>
+        <label><span>Rounds</span><select data-el='rounds'></select></label>
       </div>
       <form class='mp-invite' data-el='inviteForm' autocomplete='off'>
         <input data-el='inviteName' placeholder="Friend's username" maxlength='20' autocapitalize='off' spellcheck='false' aria-label="Friend's username">
@@ -489,8 +497,10 @@ function buildUI() {
   document.body.appendChild(overlay);
   for (const el of overlay.querySelectorAll('[data-el]')) els[el.dataset.el] = el;
   els.track.innerHTML = game.tracks.map((t, i) => `<option value='${i}'>${esc(t.name)} · ${esc(t.difficulty)}</option>`).join('');
+  els.rounds.innerHTML = ROUND_CHOICES.map((n) => `<option value='${n}'>${n === 1 ? 'Single race' : `${n} rounds`}</option>`).join('');
   fillCars();
 
+  els.rounds.addEventListener('change', () => sendMsg({ type: 'rounds', rounds: +els.rounds.value }));
   els.track.addEventListener('change', () => {
     const t = game.tracks[+els.track.value];
     if (t) sendMsg({ type: 'track', track: t.id });
@@ -524,6 +534,8 @@ function buildUI() {
       render();
     } else if (act === 'start') sendMsg({ type: 'start' });
     else if (act === 'reset') sendMsg({ type: 'reset' });
+    else if (act === 'next') sendMsg({ type: 'next' });
+    else if (act === 'end-series') sendMsg({ type: 'endSeries' });
     else if (act === 'leave') leaveRoom();
     else if (act === 'leave-race') leaveRace();
     else if (act === 'retry') { stopReason = ''; notice = ''; backoff = 1000; connect(); }
@@ -596,6 +608,21 @@ function resultRows() {
   }).join('')}</ol>`;
 }
 
+// Series points table. withDelta shows what each player just scored this round.
+function seriesRows(label, withDelta) {
+  const r = data.room;
+  if (!r.standings?.length) return '';
+  return `<div class='mp-label'>${esc(label)}</div><ol class='mp-results mp-series'>${r.standings.map((e, i) => {
+    const last = e.results[e.results.length - 1];
+    const delta = withDelta && last && last.round === r.round ? ` <span class='gap'>+${last.pts}</span>` : '';
+    const hist = e.results.map((x) => (x.place ? ordinal(x.place) : 'DNF')).join(' · ');
+    return `<li class='${e.id === data.me ? 'me' : ''}${e.inRoom ? '' : ' away'}'>
+      <span class='pos'>${i + 1}</span>
+      <span class='nm'>${esc(e.username)}${e.wins ? ` <span class='gap'>🏆${e.wins > 1 ? '×' + e.wins : ''}</span>` : ''}<small class='mp-hist'>${hist}${e.inRoom ? '' : ' · left'}</small></span>
+      <span class='tm'><b>${e.pts}</b> pts${delta}</span></li>`;
+  }).join('')}</ol>`;
+}
+
 function connLine() {
   if (stopReason) return `${esc(stopReason)} <button type='button' class='link' data-act='retry'>Use it here</button>`;
   if (conn === 'online') return '';
@@ -624,7 +651,7 @@ function render() {
   const showHud = !!data && r.status === 'racing' && launchedRace === r.raceNo && mode() !== 'menu';
   hud.classList.toggle('hidden', !showHud);
   if (showHud) {
-    setHTML(hud, `<ol>${standings().map((p, i) => `<li class='${p.id === data.me ? 'me' : ''}${p.dnf ? ' out' : ''}'><span>${i + 1}</span><b>${esc(p.username)}</b><em>${p.finish != null ? fmt(p.finish) : p.dnf ? 'DNF' : Math.round(p.prog * 100) + '%'}</em></li>`).join('')}</ol>
+    setHTML(hud, `${roundTag() ? `<div class='mp-round'>${roundTag()}</div>` : ''}<ol>${standings().map((p, i) => `<li class='${p.id === data.me ? 'me' : ''}${p.dnf ? ' out' : ''}'><span>${i + 1}</span><b>${esc(p.username)}</b><em>${p.finish != null ? fmt(p.finish) : p.dnf ? 'DNF' : Math.round(p.prog * 100) + '%'}</em></li>`).join('')}</ol>
       ${inLiveRace() ? "<button type='button' class='mp-leave' data-act='leave-race'>Leave race</button>" : ''}`);
   }
 
@@ -650,25 +677,35 @@ function render() {
     const present = data.players.filter((p) => p.present).length;
     const host = data.players.find((p) => p.host);
     title = 'Lobby';
-    sub = `Racing <b>${esc(trackName(r.track))}</b>. Invite friends by username.`;
+    const roundsLine = multiRound() ? `Round <b>${nextRound()}</b> of <b>${r.rounds}</b> · ` : '';
+    sub = `${roundsLine}Racing <b>${esc(trackName(r.track))}</b>. Invite friends by username.`;
     body = playerRows();
+    if (multiRound() && r.round > 0 && r.standings?.length) body += seriesRows(seriesOver() ? 'LAST SERIES · FINAL STANDINGS' : 'SERIES STANDINGS', false);
     if (document.activeElement !== els.track) els.track.value = String(Math.max(0, trackIdx(r.track)));
     els.track.disabled = !isHost();
     if (document.activeElement !== els.car) els.car.value = String(game.carIndex());
+    if (document.activeElement !== els.rounds) {
+      if (!ROUND_CHOICES.includes(r.rounds)) els.rounds.insertAdjacentHTML('beforeend', `<option value='${r.rounds}'>${r.rounds} rounds</option>`);
+      els.rounds.value = String(r.rounds);
+    }
+    els.rounds.disabled = !isHost() || seriesRunning();
+    const startLabel = multiRound() ? `START ROUND ${nextRound()}/${r.rounds} ▶` : 'START RACE ▶';
     acts = isHost()
-      ? `<button class='btn primary' type='button' data-act='start' ${present < 2 ? 'disabled' : ''}>START RACE ▶</button>`
+      ? `<button class='btn primary' type='button' data-act='start' ${present < 2 ? 'disabled' : ''}>${startLabel}</button>`
       : `<div class='mp-hint'>Waiting for <b>${esc(host?.username)}</b> to start…</div>`;
+    if (isHost() && seriesRunning()) acts += `<button class='btn' type='button' data-act='end-series'>END SERIES</button>`;
     acts += `<button class='btn' type='button' data-act='leave'>LEAVE ROOM</button>`;
     if (isHost() && present < 2) acts += `<div class='mp-hint'>You need at least one friend in the lobby to start.</div>`;
   } else if (view === 'starting') {
     const s = Math.max(0, Math.ceil((r.startAt - serverNow()) / 1000));
     title = 'Get ready';
-    sub = `<b>${esc(trackName(r.track))}</b> · starting in <b class='mp-count'>${s}</b>`;
+    sub = `${roundTag() ? `${roundTag()} · ` : ''}<b>${esc(trackName(r.track))}</b> · starting in <b class='mp-count'>${s}</b>`;
     body = playerRows();
   } else if (view === 'results') {
     const done = r.status === 'finished';
     const fin = standings().filter((p) => p.finish != null);
     title = done ? 'Results' : 'Race in progress';
+    if (multiRound()) title = done ? (seriesOver() ? 'Final round' : `Round ${r.round}/${r.rounds} results`) : `Round ${r.round}/${r.rounds}`;
     if (done && fin.length) {
       const [a, b] = fin;
       if (b && a.finish === b.finish) sub = '🏁 Dead heat!';
@@ -679,7 +716,16 @@ function render() {
     else sub = 'Waiting for everyone to finish…';
     if (myResult?.error) setHTML(els.msg, esc(myResult.error));
     body = resultRows();
-    if (done && isHost()) acts = `<button class='btn primary' type='button' data-act='reset'>BACK TO LOBBY</button>`;
+    if (multiRound() && done) {
+      const champ = seriesOver() ? r.standings[0] : null;
+      if (champ) sub += `<br>👑 <b>${esc(champ.username)}</b> wins the series with <b>${champ.pts}</b> pts`;
+      body += seriesRows(seriesOver() ? 'FINAL STANDINGS' : 'SERIES STANDINGS', true);
+    }
+    if (done && isHost() && seriesRunning()) {
+      acts = `<button class='btn primary' type='button' data-act='next'>NEXT ROUND ▶</button>
+              <button class='btn' type='button' data-act='reset'>LOBBY</button>
+              <div class='mp-hint'>Go to the lobby to pick a different track for round ${r.round + 1}.</div>`;
+    } else if (done && isHost()) acts = `<button class='btn primary' type='button' data-act='reset'>BACK TO LOBBY</button>`;
     else if (done) acts = `<div class='mp-hint'>Waiting for the host…</div>`;
     acts += `<button class='btn' type='button' data-act='leave'>LEAVE ROOM</button>`;
   }
