@@ -17,7 +17,7 @@ const TRACK_RE = /^[a-z0-9_-]{1,32}$/;
 const NAME_RE = /^[A-Za-z0-9_-]{1,20}$/;
 const SEARCH_RE = /^[A-Za-z0-9_-]{0,20}$/;
 
-// Secret cars are never revealed publicly: they show up as the stock car they look like.
+// The retired Tech Hub car: runs saved with it show as the Nikhil car it was styled after.
 const DISGUISE = { hub: 'nikhil' };
 const publicCar = (c) => DISGUISE[c] ?? c;
 
