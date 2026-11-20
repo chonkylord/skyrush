@@ -96,7 +96,7 @@ function snapshot(room) {
     players: [...room.members.values()].map((m) => {
       const racing = room.raceNo > 0 && m.raceNo === room.raceNo && room.status !== 'lobby';
       return {
-        id: m.id, username: m.name, car: m.car, host: m.id === room.hostId,
+        id: m.id, username: m.name, car: publicCar(m.car), host: m.id === room.hostId,
         active: true, present: m.connected, racing,
         finish: racing ? m.finish : null, dnf: racing && m.finish == null && m.dnf,
         state: racing && room.status === 'racing' ? m.state : null,
@@ -199,6 +199,9 @@ function joinRoom(user, room, car) {
 const err = (ws, text) => send(ws, { type: 'error', text });
 // Cars only one account may drive. Anyone else sending the id is treated as "no car".
 const SECRET_CAR = { hub: 'advaitstechhub' };
+// What other players are told about a car: secret ones look like the stock car they're styled after.
+const DISGUISE = { hub: 'nikhil' };
+const publicCar = (c) => DISGUISE[c] ?? c;
 const carOf = (v, user) => {
   if (typeof v !== 'string' || !ID_RE.test(v)) return null;
   const owner = SECRET_CAR[v];

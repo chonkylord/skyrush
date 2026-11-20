@@ -17,13 +17,17 @@ const TRACK_RE = /^[a-z0-9_-]{1,32}$/;
 const NAME_RE = /^[A-Za-z0-9_-]{1,20}$/;
 const SEARCH_RE = /^[A-Za-z0-9_-]{0,20}$/;
 
+// Secret cars are never revealed publicly: they show up as the stock car they look like.
+const DISGUISE = { hub: 'nikhil' };
+const publicCar = (c) => DISGUISE[c] ?? c;
+
 const likeEscape = (s) => s.replace(/[\\%_]/g, (c) => '\\' + c);
 
 const entry = (r) => ({
   rank: Number(r.rank),
   username: r.username,
   time: r.time_s,
-  car: r.car_id,
+  car: publicCar(r.car_id),
   replay: !!r.has_replay,
   updatedAt: r.updated_at,
 });
@@ -50,7 +54,7 @@ export default handle(async (req, res) => {
     const r = rows[0];
     return send(res, 200, {
       replay: r && Array.isArray(r.ghost) && r.ghost.length >= 14
-        ? { username: r.username, track: r.track_id, time: r.time_s, splits: r.splits, ghost: r.ghost, car: r.car_id, updatedAt: r.updated_at }
+        ? { username: r.username, track: r.track_id, time: r.time_s, splits: r.splits, ghost: r.ghost, car: publicCar(r.car_id), updatedAt: r.updated_at }
         : null,
     });
   }

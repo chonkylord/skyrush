@@ -591,7 +591,7 @@ function playerRows() {
     <li class='${p.present ? '' : 'away'}'>
       <span class='dot' aria-hidden='true'></span>
       <b>${esc(p.username)}</b>
-      <span class='mp-car'>${esc(carName(p.car))}</span>
+      <span class='mp-car'>${esc(carName(p.id === data.me ? game.carId() : p.car))}</span>
       ${p.host ? "<span class='tagc'>HOST</span>" : ''}${p.id === data.me ? "<span class='tagc you'>YOU</span>" : ''}
     </li>`).join('')}</ul>`;
 }
